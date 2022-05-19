@@ -32,11 +32,10 @@ class DefaultController extends LayoutController
                 [
                     'allow' => true,
                     'actions' => [
-                        '',
+                        'download-backup',
                     ],
-                    'roles' => [
-                        BackupModule::getInstance()->backupDownloadRoles
-                    ],
+                    'roles' => BackupModule::getInstance()->backupDownloadRoles
+                    ,
                 ],
               ],
             ],
