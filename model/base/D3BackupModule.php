@@ -6,6 +6,8 @@ namespace vendor\d3yii2\d3backupmodules\model\base;
 
 use Yii;
 use d3system\behaviors\D3DateTimeBehavior;
+use d3yii2\d3pop3\models\D3cCompany;
+use d3system\models\SysModels;
 
 /**
  * This is the base-model class for table "d3backup_module".
@@ -74,8 +76,8 @@ abstract class D3BackupModule extends \yii\db\ActiveRecord
             'smallint Unsigned' => [['id','sys_company_id'],'integer' ,'min' => 0 ,'max' => 65535],
             [['status', 'data'], 'string'],
             [['created', 'updated'], 'safe'],
-            [['sys_company_id'], 'exist', 'skipOnError' => true, 'targetClass' => \vendor\d3yii2\d3backupmodules\model\D3cCompany::className(), 'targetAttribute' => ['sys_company_id' => 'id']],
-            [['sys_model_id'], 'exist', 'skipOnError' => true, 'targetClass' => \vendor\d3yii2\d3backupmodules\model\SysModels::className(), 'targetAttribute' => ['sys_model_id' => 'id']],
+            [['sys_company_id'], 'exist', 'skipOnError' => true, 'targetClass' => D3cCompany::className(), 'targetAttribute' => ['sys_company_id' => 'id']],
+            [['sys_model_id'], 'exist', 'skipOnError' => true, 'targetClass' => SysModels::className(), 'targetAttribute' => ['sys_model_id' => 'id']],
             'D3DateTimeBehavior' => [['created_local','updated_local'],'safe']
         ];
     }

@@ -2,6 +2,7 @@
 
 namespace vendor\d3yii2\d3backupmodules\model;
 
+use yii\helpers\Json;
 use vendor\d3yii2\d3backupmodules\model\base\D3BackupModule as BaseD3BackupModule;
 
 /**
@@ -12,5 +13,20 @@ class D3BackupModule extends BaseD3BackupModule
     public static function canRun():bool
     {
         return empty(D3BackupModule::findOne(['status' => D3BackupModule::STATUS_PROCESSING]));
+    }
+
+    public function writeError($msg)
+    {
+        $data = Json::decode($this->data, true);
+        $data['errors'] = $msg;
+        $this->data = Json::encode($data);
+        $this->setStatusFailed();
+        $this->save();
+    }
+
+    public function getDataValue(string $key)
+    {
+        $ids = Json::decode($this->data, true);
+        return isset($ids[$key]) ? $ids[$key] : '';
     }
 }
