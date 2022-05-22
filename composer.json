@@ -10,7 +10,8 @@
         }
     ],
     "require": {
-        "yiisoft/yii2": "*"
+        "yiisoft/yii2": "*",
+        "ext-zip": "*"
     },
     "autoload": {
         "psr-4": {

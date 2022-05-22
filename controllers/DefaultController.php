@@ -2,7 +2,7 @@
 
 namespace d3yii2\d3backupmodules\controllers;
 
-use d3yii2\d3backupmodules\actions\download_backupAction;
+use d3yii2\d3backupmodules\actions\DownloadBackupAction;
 use eaBlankonThema\yii2\web\LayoutController;
 use yii\filters\AccessControl;
 use d3yii2\d3backupmodules\Module as BackupModule;
@@ -47,7 +47,7 @@ class DefaultController extends LayoutController
         return [
             'download-backup' =>
             [
-                'class' => download_backupAction::class,
+                'class' => DownloadBackupAction::class,
             ]
         ];
     }
