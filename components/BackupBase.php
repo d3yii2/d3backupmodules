@@ -1,15 +1,10 @@
 <?php
 
-namespace components;
+namespace d3yii2\d3backupmodules\components;
 
 use d3system\helpers\D3FileHelper;
-use Exception;
-use PhpOffice\PhpWord\Shared\ZipArchive;
-use RuntimeException;
 use vendor\d3yii2\d3backupmodules\model\D3BackupModule;
 use yii\base\Component;
-use yii\helpers\FileHelper;
-use yii\helpers\Url;
 
 /**
  * extend for module backup compnents
@@ -19,6 +14,9 @@ class BackupBase extends Component
 
     public $tempDirectory;
     public $backupDirectory;
+
+    public $attachments;
+    public $folder;
 
     public function compile(D3BackupModule  $module)
     {
@@ -42,14 +40,14 @@ class BackupBase extends Component
     }
 
     /**
-     * @param string $fileName
+     * @param string $folder
      * @param string $html
      * @return string
      * @throws \yii\base\Exception
      */
-    public function createFile(string $fileName, string $html):string
+    public function createFile(string $folder, string $html):string
     {
-        return D3FileHelper::filePutContentInRuntime($this->tempDirectory, $fileName, $html);
+        return D3FileHelper::filePutContentInRuntime($this->tempDirectory . '/' . $folder, 'index.html', $html);
     }
 
 

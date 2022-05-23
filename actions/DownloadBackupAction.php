@@ -15,7 +15,7 @@ class DownloadBackupAction extends Action
 
     public function run(string $token)
     {
-        $defaultRoute = $this->controller->module->defaultRoute;
+        $defaultRoute = $this->controller->module->backupDirectory;
         $files = scandir($defaultRoute);
         foreach ($files as $file) {
             if (strpos($token, md5($file)) !== false) {
