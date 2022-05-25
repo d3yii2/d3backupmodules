@@ -157,7 +157,7 @@ class CommandRunner extends D3CommandComponent
     /**
      * @param D3BackupModule $model
      * @param string $folder
-     * @param array $addFiles
+     * @param array $addFiles ['fullPathWithFileName' => localFileName]
      * @throws \PhpOffice\PhpWord\Exception\Exception
      * @throws \yii\base\ErrorException
      * @throws \yii\base\Exception
@@ -175,12 +175,13 @@ class CommandRunner extends D3CommandComponent
         }
 
         foreach(D3FileHelper::getDirectoryFiles($this->tempDirectory . '/' . $folder) as $file){
-            $zip->addFile($file, $file);
+            $zip->addFile($file, basename($file));
         }
 
-        foreach ($addFiles as $file) {
-            $zip->addFile($file, $file);
+        foreach ($addFiles as $fullPath => $name) {
+            $zip->addFile($fullPath, 'attachments/'.$name);
         }
+
         $zip->close();
 
         FileHelper::removeDirectory(D3FileHelper::getRuntimeDirectoryPath($this->tempDirectory. '/' . $folder));
