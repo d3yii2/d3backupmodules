@@ -61,14 +61,12 @@ class CommandRunner extends D3CommandComponent
     /**
      * ModuleBackupBase constructor.
      * @param array $config
-     * @throws \yii\base\Exception
      */
     public function __construct($config = [])
     {
         parent::__construct($config);
-        $this->backupDirectory = $this->backupDirectory;
-        $this->tempDirectory = $this->tempDirectory;
-
+        $this->backupDirectory = $config['backupDirectory'];
+        $this->tempDirectory = $config['tempDirectory'];
     }
 
     /**
@@ -79,17 +77,20 @@ class CommandRunner extends D3CommandComponent
     {
         parent::run($controller);
         try {
+            $this->out('Remove old files');
             $this->removeOldFiles();
+            $this->out(' - done');
             if (D3BackupModule::canRun()) {
                 if ($model = D3BackupModule::find()
                     ->where(['status' => D3BackupModule::STATUS_NEW])
                     ->orderBy(['created' => SORT_DESC])
                     ->one()
                 ) {
+                    $this->out('id=' . $model->id . ' created: ' . $model->created);
                         if (!$componentClass = SysModelsDictionary::getClassList()[$model->sys_model_id] ?? false) {
                             throw new \yii\base\Exception('Undefined sys_model_id: ' . $model->sys_model_id);
                         }
-                        $componentClass = $this->modelComponents[$model->sys_model_id];
+                    $this->out(' compnent: ' . $componentClass);
                         $component = new $componentClass([
                             'tempDirectory' => $this->tempDirectory,
                             'backupDirectory' => $this->backupDirectory
@@ -97,14 +98,17 @@ class CommandRunner extends D3CommandComponent
 
                         if (!is_callable(array($componentClass, 'compile'))) {
                             throw new \yii\base\Exception('Uncallable : ' . $componentClass . '->compile()');
-                        } else {
-                            $component->compile($model);
-                            $this->createZip($model, $component->folder, $component->attachments);
                         }
+                        $component->compile($model);
+                        $this->createZip($model, $component->folder, $component->attachments);
                 }
             }
         } catch (Exception $e) {
-            $model->writeError($e);
+            Yii::error($e->getMessage() . PHP_EOL . $e->getTraceAsString());
+            $this->out($e->getMessage() . PHP_EOL . $e->getTraceAsString());
+            if (isset($model)) {
+                $model->writeError($e);
+            }
         }
         return ExitCode::OK;
     }
@@ -160,7 +164,7 @@ class CommandRunner extends D3CommandComponent
      * @param array $addFiles ['fullPathWithFileName' => localFileName]
      * @throws \PhpOffice\PhpWord\Exception\Exception
      * @throws \yii\base\ErrorException
-     * @throws \yii\base\Exception
+     * @throws \yii\base\Exception|\ReflectionException
      */
     public function createZip(
         D3BackupModule $model,

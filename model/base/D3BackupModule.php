@@ -8,6 +8,7 @@ use Yii;
 use d3system\behaviors\D3DateTimeBehavior;
 use d3yii2\d3pop3\models\D3cCompany;
 use d3system\models\SysModels;
+use yii\db\ActiveRecord;
 
 /**
  * This is the base-model class for table "d3backup_module".
@@ -24,7 +25,7 @@ use d3system\models\SysModels;
  * @property \vendor\d3yii2\d3backupmodules\model\SysModels $sysModel
  * @property string $aliasModel
  */
-abstract class D3BackupModule extends \yii\db\ActiveRecord
+abstract class D3BackupModule extends ActiveRecord
 {
 
 
