@@ -52,6 +52,16 @@ class CommandRunner extends D3CommandComponent
     public $emailTemplateView = '@vendor/d3yii2/d3backupmodules/views/emails/index';
 
     /**
+     * @var string set the email from e-mail
+     */
+    public $emailFrom;
+
+    /**
+     * @var string email body text
+     */
+    public $emailBody;
+
+    /**
      * @var array associative array where keys are sys_model_id and value
      * is that module custom component path
      * example : [2 => 'd3modules\d3invoices\components\InvInvoiceBackup']
@@ -67,6 +77,8 @@ class CommandRunner extends D3CommandComponent
         parent::__construct($config);
         $this->backupDirectory = $config['backupDirectory'];
         $this->tempDirectory = $config['tempDirectory'];
+        $this->emailFrom = $config['emailFrom'];
+        $this->emailBody = $config['emailBody'];
     }
 
     /**
@@ -100,7 +112,7 @@ class CommandRunner extends D3CommandComponent
                             throw new \yii\base\Exception('Uncallable : ' . $componentClass . '->compile()');
                         }
                         $component->compile($model);
-                        $this->createZip($model, $component->folder, $component->attachments);
+                        $this->createZip($model, $component);
                 }
             }
         } catch (Exception $e) {
@@ -129,29 +141,36 @@ class CommandRunner extends D3CommandComponent
 
     /**
      * @param D3BackupModule $model
-     * @param string $link
+     * @param BackupBase $component
      * @param string $view
      * @throws \ReflectionException
      * @throws \d3system\exceptions\D3ActiveRecordException
      * @throws \yii\base\Exception
      * @throws \yii\web\ForbiddenHttpException
      */
-    private function sendMail(D3BackupModule $model, string $link, string $view)
+    private function sendMail(D3BackupModule $model, string $view, BackupBase $component)
     {
-        $plainBody = Yii::$app->view->render(
-            $view,
-            [
-                'link' => $link,
-            ]
-        );
+        if ($this->emailBody) {
+            $link = Url::toRoute([
+                '/d3backupmodules/default/download-backup',
+                'token' => md5(basename($component->folder . '.zip')),
+            ]);
+            $plainBody = str_replace('{$link}', $link, $this->emailBody);
+        } else {
+            $plainBody = Yii::$app->view->render(
+                $view,
+                [
+                    'body' => $component->emailBody,
+                ]
+            );
+        }
 
         $d3mail = new D3Mail();
         $d3mail->setEmailId(['SYS', $model->sys_company_id, 'INV', $model->id, date('YmdHis')])
-            ->setSubject('Backup ready.')
+            ->setSubject($component->emailSubject)
             ->setBodyPlain($plainBody)
-            ->setFromName('System Irēķini')
+            ->setFromEmail($this->emailFrom)
             ->addSendReceiveToInCompany($model->sys_company_id)
-            ->setEmailModel($model)
             ->save();
 
         $model->setStatusDone();
@@ -160,42 +179,35 @@ class CommandRunner extends D3CommandComponent
 
     /**
      * @param D3BackupModule $model
-     * @param string $folder
-     * @param array $addFiles ['fullPathWithFileName' => localFileName]
+     * @param BackupBase $component
      * @throws \PhpOffice\PhpWord\Exception\Exception
      * @throws \yii\base\ErrorException
      * @throws \yii\base\Exception|\ReflectionException
      */
     public function createZip(
         D3BackupModule $model,
-        string $folder,
-        array $addFiles = []
+        BackupBase $component
     )
     {
         $zip = new ZipArchive();
 
-        if ($zip->open(D3FileHelper::getRuntimeDirectoryPath($this->backupDirectory) . '/' . $folder . '.zip', ZipArchive::CREATE) !== TRUE) {
+        if ($zip->open(D3FileHelper::getRuntimeDirectoryPath($this->backupDirectory) . '/' . $component->folder . '.zip', ZipArchive::CREATE) !== TRUE) {
             throw new RuntimeException('Cannot create a zip file');
         }
 
-        foreach(D3FileHelper::getDirectoryFiles($this->tempDirectory . '/' . $folder) as $file){
+        foreach(D3FileHelper::getDirectoryFiles($this->tempDirectory . '/' . $component->folder) as $file){
             $zip->addFile($file, basename($file));
         }
 
-        foreach ($addFiles as $fullPath => $name) {
+        foreach ($component->attachments as $fullPath => $name) {
             $zip->addFile($fullPath, 'attachments/'.$name);
         }
 
         $zip->close();
 
-        FileHelper::removeDirectory(D3FileHelper::getRuntimeDirectoryPath($this->tempDirectory. '/' . $folder));
+        FileHelper::removeDirectory(D3FileHelper::getRuntimeDirectoryPath($this->tempDirectory. '/' . $component->folder));
 
-        $link = Url::toRoute([
-            '/d3backupmodules/default/download-backup',
-            'token' => md5(basename($folder . '.zip')),
-        ]);
-
-        $this->sendMail($model, $link, $this->emailTemplateView);
+        $this->sendMail($model, $this->emailTemplateView, $component);
     }
 
 }

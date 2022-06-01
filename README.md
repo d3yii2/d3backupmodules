@@ -31,6 +31,8 @@ change console.php
             'd3backupmodules' => [
                 'class' => 'd3yii2\d3backupmodules\components\ModuleBackupBase',
                 'modelComponents' => [2 => 'd3modules\d3invoices\components\InvInvoiceBackup'],
+                'emailFrom' => 'Irēķini sistēma',
+                'emailBody' => '<a href="{$link}" target="_blank">Lejuplādēt arhīvu</a>',
             ]
         ]
 ```

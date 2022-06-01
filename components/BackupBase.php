@@ -18,6 +18,9 @@ class BackupBase extends Component
     public $attachments = [];
     public $folder;
 
+    public $emailBody;
+    public $emailSubject;
+
     public function compile(D3BackupModule  $module)
     {
 
