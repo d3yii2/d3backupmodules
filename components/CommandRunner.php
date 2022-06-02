@@ -69,6 +69,11 @@ class CommandRunner extends D3CommandComponent
     public $modelComponents = [];
 
     /**
+     * @var int set how many archives to generate in one run
+     */
+    public $archivesPerRun;
+
+    /**
      * ModuleBackupBase constructor.
      * @param array $config
      */
@@ -79,6 +84,7 @@ class CommandRunner extends D3CommandComponent
         $this->tempDirectory = $config['tempDirectory'];
         $this->emailFrom = $config['emailFrom'];
         $this->emailBody = $config['emailBody'];
+        $this->archivesPerRun = $config['archivesPerRun'];
     }
 
     /**
@@ -93,11 +99,12 @@ class CommandRunner extends D3CommandComponent
             $this->removeOldFiles();
             $this->out(' - done');
             if (D3BackupModule::canRun()) {
-                if ($model = D3BackupModule::find()
+                foreach(D3BackupModule::find()
                     ->where(['status' => D3BackupModule::STATUS_NEW])
                     ->orderBy(['created' => SORT_DESC])
-                    ->one()
+                    ->limit($this->archivesPerRun)->all() as $model
                 ) {
+                    Yii::$app->SysCmp->setActiveId($model->sys_company_id);
                     $this->out('id=' . $model->id . ' created: ' . $model->created);
                         if (!$componentClass = SysModelsDictionary::getClassList()[$model->sys_model_id] ?? false) {
                             throw new \yii\base\Exception('Undefined sys_model_id: ' . $model->sys_model_id);
