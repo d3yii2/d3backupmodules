@@ -129,7 +129,7 @@ class CommandRunner extends D3CommandComponent
                 $model->writeError($e);
             }
         }
-        return ExitCode::OK;
+        return true;
     }
 
 
