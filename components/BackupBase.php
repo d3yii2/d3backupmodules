@@ -69,7 +69,7 @@ class BackupBase extends Component
         foreach (D3Files::getModelFilesList($className, $recordId, true) as $file) {
             $fileHandler = new FileHandler([
                 'model_name' => $file['className'],
-                'model_id' => $file['id'],
+                'model_id' => $file['file_model_id'],
                 'file_name' => $file['file_name']
             ]);
             $filePath = $fileHandler->getFilePath();
