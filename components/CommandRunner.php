@@ -13,7 +13,6 @@ use PhpOffice\PhpWord\Shared\ZipArchive;
 use RuntimeException;
 use vendor\d3yii2\d3backupmodules\model\D3BackupModule;
 use Yii;
-use yii\console\ExitCode;
 use Exception;
 use yii\helpers\FileHelper;
 use yii\helpers\Url;
@@ -206,8 +205,10 @@ class CommandRunner extends D3CommandComponent
             $zip->addFile($file, basename($file));
         }
 
-        foreach ($component->attachments as $fullPath => $name) {
-            $zip->addFile($fullPath, 'attachments/'.$name);
+        foreach ($component->attachments as $recordAttchments) {
+            foreach ($recordAttchments as $fullPath => $name) {
+                $zip->addFile($fullPath, 'attachments/' . $name);
+            }
         }
 
         $zip->close();

@@ -3,8 +3,8 @@
 namespace d3yii2\d3backupmodules\components;
 
 use d3system\helpers\D3FileHelper;
-use d3yii2\d3files\components\D3Files;
 use d3yii2\d3files\components\FileHandler;
+use d3yii2\d3files\models\D3files;
 use vendor\d3yii2\d3backupmodules\model\D3BackupModule;
 use Yii;
 use yii\base\Component;
@@ -61,20 +61,22 @@ class BackupBase extends Component
      * @param string $className
      * @param int $recordId
      * @return string[]
-     * @throws \ReflectionException
+     * @throws \ReflectionException|\yii\db\Exception
      */
     public static function getRecordFiles(string $className, int $recordId): array
     {
         $files = [];
-        foreach (D3Files::getModelFilesList($className, $recordId, true) as $file) {
+        $i = 1;
+        foreach (D3files::fileListForWidget($className, $recordId, true) as $file) {
             $fileHandler = new FileHandler([
                 'model_name' => $file['className'],
-                'model_id' => $file['file_model_id'],
+                'model_id' => $file['id'],
                 'file_name' => $file['file_name']
             ]);
             $filePath = $fileHandler->getFilePath();
             if (file_exists($filePath)) {
-                $files[$filePath] = $file['file_name'];
+                $files[$filePath] = $recordId . '_' . $i . '_' . $file['file_name'];
+                $i ++;
             } else {
                 Yii::error(
                     'Neatrada failu: ' . VarDumper::dumpAsString($file) . PHP_EOL .
