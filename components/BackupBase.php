@@ -3,8 +3,12 @@
 namespace d3yii2\d3backupmodules\components;
 
 use d3system\helpers\D3FileHelper;
+use d3yii2\d3files\components\D3Files;
+use d3yii2\d3files\components\FileHandler;
 use vendor\d3yii2\d3backupmodules\model\D3BackupModule;
+use Yii;
 use yii\base\Component;
+use yii\helpers\VarDumper;
 
 /**
  * extend for module backup compnents
@@ -53,6 +57,32 @@ class BackupBase extends Component
         return D3FileHelper::filePutContentInRuntime($this->tempDirectory . '/' . $folder, 'index.html', $html);
     }
 
-
+    /**
+     * @param string $className
+     * @param int $recordId
+     * @return string[]
+     * @throws \ReflectionException
+     */
+    public static function getRecordFiles(string $className, int $recordId): array
+    {
+        $files = [];
+        foreach (D3Files::getModelFilesList($className, $recordId, true) as $file) {
+            $fileHandler = new FileHandler([
+                'model_name' => $file['className'],
+                'model_id' => $file['id'],
+                'file_name' => $file['file_name']
+            ]);
+            $filePath = $fileHandler->getFilePath();
+            if (file_exists($filePath)) {
+                $files[$filePath] = $file['file_name'];
+            } else {
+                Yii::error(
+                    'Neatrada failu: ' . VarDumper::dumpAsString($file) . PHP_EOL .
+                    ';  Path: ' . $filePath
+                );
+            }
+        }
+        return $files;
+    }
 
 }
