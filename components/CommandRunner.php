@@ -5,17 +5,22 @@ namespace d3yii2\d3backupmodules\components;
 use d3system\compnents\D3CommandComponent;
 use d3system\controllers\D3ComponentCommandController;
 use d3system\dictionaries\SysModelsDictionary;
+use d3system\exceptions\D3ActiveRecordException;
 use d3system\helpers\D3FileHelper;
 use d3yii2\d3pop3\components\D3Mail;
 use DateInterval;
+use DateMalformedIntervalStringException;
 use DateTime;
 use PhpOffice\PhpWord\Shared\ZipArchive;
+use ReflectionException;
 use RuntimeException;
 use vendor\d3yii2\d3backupmodules\model\D3BackupModule;
 use Yii;
 use Exception;
+use yii\base\ErrorException;
 use yii\helpers\FileHelper;
 use yii\helpers\Url;
+use yii\web\ForbiddenHttpException;
 
 
 /**
@@ -114,7 +119,7 @@ class CommandRunner extends D3CommandComponent
                             'backupDirectory' => $this->backupDirectory
                         ]);
 
-                        if (!is_callable(array($componentClass, 'compile'))) {
+                        if (!is_callable([$component, 'compile'])) {
                             throw new \yii\base\Exception('Uncallable : ' . $componentClass . '->compile()');
                         }
                         $component->compile($model);
@@ -122,8 +127,8 @@ class CommandRunner extends D3CommandComponent
                 }
             }
         } catch (Exception $e) {
-            Yii::error($e->getMessage() . PHP_EOL . $e->getTraceAsString());
-            $this->out($e->getMessage() . PHP_EOL . $e->getTraceAsString());
+            Yii::error($e);
+            $this->out($e->getMessage());
             if (isset($model)) {
                 $model->writeError($e);
             }
@@ -132,6 +137,10 @@ class CommandRunner extends D3CommandComponent
     }
 
 
+    /**
+     * @throws \yii\base\Exception
+     * @throws DateMalformedIntervalStringException
+     */
     private function removeOldFiles(): void
     {
         foreach (D3FileHelper::getDirectoryFiles($this->backupDirectory) as $file) {
@@ -149,12 +158,12 @@ class CommandRunner extends D3CommandComponent
      * @param D3BackupModule $model
      * @param BackupBase $component
      * @param string $view
-     * @throws \ReflectionException
-     * @throws \d3system\exceptions\D3ActiveRecordException
+     * @throws ReflectionException
+     * @throws D3ActiveRecordException
      * @throws \yii\base\Exception
-     * @throws \yii\web\ForbiddenHttpException
+     * @throws ForbiddenHttpException
      */
-    private function sendMail(D3BackupModule $model, string $view, BackupBase $component)
+    private function sendMail(D3BackupModule $model, string $view, BackupBase $component): void
     {
         if ($this->emailBody) {
             $link = Url::toRoute([
@@ -187,14 +196,13 @@ class CommandRunner extends D3CommandComponent
      * @param D3BackupModule $model
      * @param BackupBase $component
      * @throws \PhpOffice\PhpWord\Exception\Exception
-     * @throws \yii\base\ErrorException
-     * @throws \yii\base\Exception|\ReflectionException
+     * @throws ErrorException
+     * @throws \yii\base\Exception|ReflectionException
      */
     public function createZip(
         D3BackupModule $model,
         BackupBase $component
-    )
-    {
+    ): void {
         $zip = new ZipArchive();
 
         if ($zip->open(D3FileHelper::getRuntimeDirectoryPath($this->backupDirectory) . '/' . $component->folder . '.zip', ZipArchive::CREATE) !== TRUE) {
