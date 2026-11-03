@@ -2,6 +2,7 @@
 
 namespace d3yii2\d3backupmodules\components;
 
+use Closure;
 use RuntimeException;
 use Throwable;
 use Yii;
@@ -66,7 +67,9 @@ class SqlDump
      * @param array|string|null $condition Yii where condition (may contain sub queries); null - all rows
      * @param string[] $excludeColumns columns not to export (column must be nullable or have a default value)
      * @param array $maskColumns columns exported with a fixed value instead of the real one
-     *        [column => value], e.g. ['password_hash' => ''] for NOT NULL secret columns
+     *        [column => value], e.g. ['password_hash' => ''] for NOT NULL secret columns.
+     *        Value can be a Closure function($value, array $row) returning the value to export,
+     *        e.g. to blank a password inside a JSON column
      * @return int exported rows count
      */
     public function table(string $table, $condition = null, array $excludeColumns = [], array $maskColumns = []): int
@@ -96,7 +99,11 @@ class SqlDump
                 foreach ($rows as $row) {
                     $rowValues = [];
                     foreach ($columns as $column) {
-                        $value = array_key_exists($column, $maskColumns) ? $maskColumns[$column] : $row[$column];
+                        $value = $row[$column];
+                        if (array_key_exists($column, $maskColumns)) {
+                            $mask = $maskColumns[$column];
+                            $value = $mask instanceof Closure ? $mask($value, $row) : $mask;
+                        }
                         $rowValues[] = $this->value($value, $schema->getColumn($column));
                     }
                     $values[] = '(' . implode(', ', $rowValues) . ')';
