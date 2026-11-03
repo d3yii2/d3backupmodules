@@ -3,10 +3,14 @@
 namespace d3yii2\d3backupmodules\controllers;
 
 use d3yii2\d3backupmodules\actions\DownloadBackupAction;
+use d3yii2\d3backupmodules\Module;
 use eaBlankonThema\yii2\web\LayoutController;
 use yii\filters\AccessControl;
 use d3yii2\d3backupmodules\Module as BackupModule;
 
+/**
+ * @property Module $module
+ */
 class DefaultController extends LayoutController
 {
     /**
@@ -23,7 +27,7 @@ class DefaultController extends LayoutController
     /**
      * @inheritdoc
      */
-    public function behaviors()
+    public function behaviors(): array
     {
         return [
             'access' => [
