@@ -3,6 +3,7 @@
 namespace d3yii2\d3backupmodules\components;
 
 use d3system\helpers\D3FileHelper;
+use CompanyRights\dictionaries\AuthCompanyAssigmentsDictionary;
 use d3yii2\d3files\components\FileHandler;
 use d3yii2\d3files\models\D3files;
 use ReflectionException;
@@ -10,6 +11,7 @@ use vendor\d3yii2\d3backupmodules\model\D3BackupModule;
 use Yii;
 use yii\base\Component;
 use yii\base\Exception;
+use yii\db\Query;
 use yii\helpers\VarDumper;
 
 /**
@@ -24,6 +26,11 @@ use yii\helpers\VarDumper;
  *     $emailSubject and optionally $emailBody;
  *  3. CommandRunner::createZip() packs the temp folder and attachments into
  *     {runtime}/{backupDirectory}/{folder}.zip and sends the e-mail.
+ *
+ * SQL data backup (only for archives created by Module::$dataBackupUsername):
+ * compile() calls createSqlDump(), sqlDumpCompanyData(), adds module tables
+ * with SqlDump::table() and finishes with finishSqlDump(). data.sql is added
+ * to the zip together with index.html.
  */
 class BackupBase extends Component
 {
@@ -63,6 +70,17 @@ class BackupBase extends Component
      * @var string e-mail subject. Should be set in compile().
      */
     public string $emailSubject = '';
+
+    /**
+     * @var array SQL data backup - rows count by table [table => count]
+     *      (filled by finishSqlDump(), used for the data backup log)
+     */
+    public array $sqlStats = [];
+
+    /**
+     * @var array SQL data backup - errors by table [table => message]
+     */
+    public array $sqlErrors = [];
 
     /**
      * Prepares the backup data. Overwrite in the module component.
@@ -112,6 +130,113 @@ class BackupBase extends Component
     public function createFile(string $folder, string $html):string
     {
         return D3FileHelper::filePutContentInRuntime($this->tempDirectory . '/' . $folder, 'index.html', $html);
+    }
+
+    /**
+     * Opens the SQL data backup file {runtime}/{tempDirectory}/{folder}/data.sql
+     * $folder must be set before.
+     *
+     * @return SqlDump
+     * @throws Exception
+     */
+    protected function createSqlDump(): SqlDump
+    {
+        if (!$this->folder) {
+            throw new Exception('Backup folder is not set');
+        }
+        $directory = D3FileHelper::getRuntimeDirectoryPath($this->tempDirectory . '/' . $this->folder);
+        return new SqlDump($directory . '/data.sql');
+    }
+
+    /**
+     * Closes the SQL data backup file and saves statistics for the log
+     */
+    protected function finishSqlDump(SqlDump $dump): void
+    {
+        $dump->close();
+        $this->sqlStats = $dump->stats;
+        $this->sqlErrors = $dump->errors;
+    }
+
+    /**
+     * Adds the system company data to the SQL data backup:
+     *  - own company: d3c_company, branches, addresses, settings,
+     *    inv_company, inv_company_settings, inv_bank_account, inv_numbers
+     *  - all partners: the same partner list as in the system
+     *    (AuthCompanyAssigmentsDictionary::getAllPartnersId()) - d3c_company,
+     *    branches, addresses, contact persons
+     *  - users: auth_assignment, user (password hash, auth key and
+     *    registration IP are not exported), profile, d3p_person, d3p_person_contact
+     *
+     * Every table is written once, so the SQL can be loaded into an empty database.
+     *
+     * @param SqlDump $dump
+     * @param int $sysCompanyId
+     */
+    protected function sqlDumpCompanyData(SqlDump $dump, int $sysCompanyId): void
+    {
+        /** own company + all partners */
+        $companyIds = array_values(array_unique(array_merge(
+            [$sysCompanyId],
+            array_map('intval', AuthCompanyAssigmentsDictionary::getAllPartnersId($sysCompanyId))
+        )));
+
+        $dump->table('d3c_company', ['id' => $companyIds]);
+        $dump->table('d3c_company_branch', ['company_id' => $companyIds]);
+        $dump->table('d3c_address', [
+            'id' => (new Query())
+                ->select('address_id')
+                ->from('d3c_company_branch')
+                ->where(['company_id' => $companyIds])
+        ]);
+        $dump->table('auth_company_assigments', ['sys_company_id' => $sysCompanyId]);
+        $dump->table('d3c_company_setting_val', ['sys_company_id' => $sysCompanyId]);
+
+        /** invoice module company settings (inv_company - also partner settings) */
+        $dump->table('inv_company', ['sys_company_id' => $sysCompanyId]);
+        $dump->table('inv_company_settings', ['sys_company_id' => $sysCompanyId]);
+        $dump->table('inv_bank_account', ['sys_company_id' => $sysCompanyId]);
+        $dump->table('inv_numbers', ['sys_company_id' => $sysCompanyId]);
+        $dump->table('inv_numbers_documents', [
+            'number_id' => (new Query())
+                ->select('id')
+                ->from('inv_numbers')
+                ->where(['sys_company_id' => $sysCompanyId])
+        ]);
+
+        /** users of the company */
+        $userIds = (new Query())
+            ->select('user_id')
+            ->from('auth_assignment')
+            ->where(['sys_company_id' => $sysCompanyId]);
+        $dump->table('auth_assignment', ['sys_company_id' => $sysCompanyId]);
+        /** password hash and auth key are NOT NULL - exported as empty strings */
+        $dump->table('user', ['id' => $userIds], [], [
+            'password_hash' => '',
+            'auth_key' => '',
+            'registration_ip' => null,
+        ]);
+        $dump->table('profile', ['user_id' => $userIds]);
+
+        /** persons: company contact persons and users' persons */
+        $dump->table('d3c_comapny_person', ['company_id' => $companyIds]);
+        $personCondition = [
+            'or',
+            [
+                'id' => (new Query())
+                    ->select('person_id')
+                    ->from('d3c_comapny_person')
+                    ->where(['company_id' => $companyIds])
+            ],
+            ['user_id' => $userIds],
+        ];
+        $dump->table('d3p_person', $personCondition);
+        $dump->table('d3p_person_contact', [
+            'person_id' => (new Query())
+                ->select('id')
+                ->from('d3p_person')
+                ->where($personCondition)
+        ]);
     }
 
     /**

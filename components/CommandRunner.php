@@ -14,6 +14,7 @@ use DateTime;
 use PhpOffice\PhpWord\Shared\ZipArchive;
 use ReflectionException;
 use RuntimeException;
+use Throwable;
 use vendor\d3yii2\d3backupmodules\model\D3BackupModule;
 use Yii;
 use Exception;
@@ -78,6 +79,13 @@ class CommandRunner extends D3CommandComponent
     public $archivesPerRun;
 
     /**
+     * @var string data backup log file. One line per data backup
+     * (archives created by Module::$dataBackupUsername) - shows for which
+     * companies data backups are created.
+     */
+    public $dataBackupLogFile = '@runtime/logs/d3backup_data.log';
+
+    /**
      * ModuleBackupBase constructor.
      * @param array $config
      */
@@ -124,6 +132,7 @@ class CommandRunner extends D3CommandComponent
                         }
                         $component->compile($model);
                         $this->createZip($model, $component);
+                        unset($component);
                 }
             }
         } catch (Exception $e) {
@@ -131,6 +140,9 @@ class CommandRunner extends D3CommandComponent
             $this->out($e->getMessage());
             if (isset($model)) {
                 $model->writeError($e);
+                if ($model->isDataBackup()) {
+                    $this->logDataBackup($model, $component ?? null, 'FAILED: ' . $e->getMessage());
+                }
             }
         }
         return true;
@@ -204,8 +216,9 @@ class CommandRunner extends D3CommandComponent
         BackupBase $component
     ): void {
         $zip = new ZipArchive();
+        $zipPath = D3FileHelper::getRuntimeDirectoryPath($this->backupDirectory) . '/' . $component->folder . '.zip';
 
-        if ($zip->open(D3FileHelper::getRuntimeDirectoryPath($this->backupDirectory) . '/' . $component->folder . '.zip', ZipArchive::CREATE) !== TRUE) {
+        if ($zip->open($zipPath, ZipArchive::CREATE) !== TRUE) {
             throw new RuntimeException('Cannot create a zip file');
         }
 
@@ -223,7 +236,59 @@ class CommandRunner extends D3CommandComponent
 
         FileHelper::removeDirectory(D3FileHelper::getRuntimeDirectoryPath($this->tempDirectory. '/' . $component->folder));
 
+        /** data backup user: no e-mail, only log */
+        if ($model->isDataBackup()) {
+            $model->setStatusDone();
+            if (!$model->save()) {
+                throw new D3ActiveRecordException($model);
+            }
+            $this->logDataBackup($model, $component, 'DONE', $zipPath);
+            return;
+        }
+
         $this->sendMail($model, $this->emailTemplateView, $component);
+    }
+
+    /**
+     * Writes one line to the data backup log ($dataBackupLogFile) and Yii log
+     * (category d3backupmodules.dataBackup):
+     * time | backup id | company id and name | user | component | records |
+     * SQL rows | SQL errors | result | zip file
+     *
+     * Log errors are only reported to Yii log - they must not break the backup.
+     *
+     * @param D3BackupModule $model
+     * @param BackupBase|null $component null, if failed before the component was created
+     * @param string $result DONE or FAILED: message
+     * @param string $zipPath
+     */
+    private function logDataBackup(D3BackupModule $model, ?BackupBase $component, string $result, string $zipPath = ''): void
+    {
+        try {
+            $ids = $model->getDataValue('id');
+            $line = implode(' | ', [
+                date('Y-m-d H:i:s'),
+                'backup_id=' . $model->id,
+                'sys_company_id=' . $model->sys_company_id,
+                'company=' . ($model->sysCompany->name ?? ''),
+                'user=' . $model->getDataValue('username'),
+                'component=' . ($component ? get_class($component) : ''),
+                'records=' . (is_array($ids) ? count($ids) : 0),
+                'sql_rows=' . ($component ? array_sum($component->sqlStats) : 0),
+                'sql_errors=' . ($component ? count($component->sqlErrors) : 0)
+                    . ($component && $component->sqlErrors ? ' (' . implode(', ', array_keys($component->sqlErrors)) . ')' : ''),
+                str_replace(["\r", "\n"], ' ', $result),
+                'zip=' . $zipPath,
+            ]);
+            Yii::info($line, 'd3backupmodules.dataBackup');
+            $this->out(' data backup: ' . $line);
+
+            $logFile = Yii::getAlias($this->dataBackupLogFile);
+            FileHelper::createDirectory(dirname($logFile));
+            file_put_contents($logFile, $line . PHP_EOL, FILE_APPEND | LOCK_EX);
+        } catch (Throwable $e) {
+            Yii::error('Data backup log error: ' . $e->getMessage(), 'd3backupmodules');
+        }
     }
 
 }

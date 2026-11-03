@@ -18,6 +18,18 @@ class Module extends D3Module
      */
     public $backupDirectory;
 
+    /**
+     * @var string|null user name (user.username) of the data backup user.
+     *
+     * When this user creates an archive, the archive also gets an SQL data
+     * backup (data.sql: company, partners, users and module data), no
+     * "archive ready" e-mail is sent and the backup is written to the data
+     * backup log (runtime/logs/d3backup_data.log).
+     * For all other users archives are created as before.
+     * Empty (default) - data backup is switched off.
+     */
+    public ?string $dataBackupUsername = null;
+
 
     public $controllerNamespace = 'd3yii2\d3backupmodules\controllers';
 
