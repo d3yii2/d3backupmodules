@@ -235,6 +235,7 @@ class CommandRunner extends D3CommandComponent
         $zip->close();
 
         FileHelper::removeDirectory(D3FileHelper::getRuntimeDirectoryPath($this->tempDirectory. '/' . $component->folder));
+        $this->logDataBackup($model, $component, 'DONE', $zipPath);
 
         /** data backup user: no e-mail, only log */
         if ($model->isDataBackup()) {
@@ -242,7 +243,7 @@ class CommandRunner extends D3CommandComponent
             if (!$model->save()) {
                 throw new D3ActiveRecordException($model);
             }
-            $this->logDataBackup($model, $component, 'DONE', $zipPath);
+
             return;
         }
 
